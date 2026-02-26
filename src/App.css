@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  background-color: #f8fafc; /* Very light grey/white background */
+  font-family: 'Inter', sans-serif;
+}
