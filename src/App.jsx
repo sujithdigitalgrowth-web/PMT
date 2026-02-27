@@ -182,7 +182,10 @@ const App = () => {
             <SettingsView 
               users={users} 
               setUsers={setUsers} 
-              currentUser={currentUser} 
+              currentUser={currentUser}
+              clients={clients}
+              setClients={setClients}
+              setClientLogs={setClientLogs}
             />
           )}
 
