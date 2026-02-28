@@ -94,7 +94,7 @@ const SettingsView = ({ users = [], setUsers, currentUser, clients = [], setClie
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-slate-100 font-sans text-left p-2">
+    <div className="w-full h-full flex flex-col font-sans text-left p-2">
       <div className="flex justify-between items-center mb-3 gap-4">
         <div className="inline-flex bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
           <button

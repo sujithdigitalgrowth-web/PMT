@@ -119,7 +119,7 @@ const MasterDataView = ({
     : regions.filter(region => region === regionFilter);
 
   return (
-    <div className="bg-slate-100 min-h-full p-4 space-y-4 text-left">
+    <div className="min-h-full p-4 space-y-4 text-left">
       <div className="bg-white border border-slate-200 rounded-xl p-3 flex items-center gap-2">
         {[
           { id: 'categories', label: 'Task Categories' },

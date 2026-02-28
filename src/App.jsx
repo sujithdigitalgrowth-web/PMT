@@ -11,11 +11,16 @@ import UserMetricsView from './PMT/UserMetricsView';
 import Sidebar from './PMT/Sidebar';
 import Notifications from './PMT/Notifications';
 import ProfileDropdown from './PMT/ProfileDropdown';
+import LoginView from './PMT/LoginView';
 
 const App = () => {
+  const TEST_LOGIN_EMAIL = 'test@ethinos.com';
+  const TEST_LOGIN_PASSWORD = 'ethinos@2026';
+
   // 2. DATA STATES (The Source of Truth)
   const [activeTab, setActiveTab] = useState('home'); 
-  const [userRole, setUserRole] = useState('Admin'); 
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [loginError, setLoginError] = useState('');
   
   // Clients
   const [clients, setClients] = useState([
@@ -53,9 +58,10 @@ const App = () => {
     'kmf-01': [{ id: 'l1', date: '27th Feb 2026', comment: 'Initial Setup', result: '', status: 'Pending' }] 
   });
   
-  const [notifications] = useState([
+  const [notifications, setNotifications] = useState([
     { id: 1, text: "Permissions system active", time: "Just now", read: false },
   ]);
+  const [, setUserPasswords] = useState({});
 
   // 3. GLOBAL UI STATES
   const [selectedClient, setSelectedClient] = useState(null);
@@ -66,8 +72,7 @@ const App = () => {
   const [sidebarMinimized, setSidebarMinimized] = useState(false);
 
   // 4. SHARED LOGIC
-  // Default to Super Admin (Theo) for testing full editing rights
-  const currentUser = users.find(u => u.name === "Theo") || users[0];
+  const currentUser = users.find(u => u.id === currentUserId) || null;
   const canSeeControlCenter = controlCenterAccessRoles.includes(currentUser?.role);
   const canSeeSettings = settingsAccessRoles.includes(currentUser?.role);
   const canSeeUserManagement = userManagementAccessRoles.includes(currentUser?.role);
@@ -75,7 +80,11 @@ const App = () => {
   const canSeeMetrics = metricsAccessRoles.includes(currentUser?.role);
   const availableRoles = [...new Set(users.map(user => user.role))];
   
-  const accessibleClients = currentUser.role === 'Super Admin' ? clients : clients.filter(c => currentUser.assignedProjects.includes(c.name));
+  const accessibleClients = !currentUser
+    ? []
+    : currentUser.role === 'Super Admin'
+      ? clients
+      : clients.filter(c => currentUser.assignedProjects.includes(c.name));
   const allTasks = accessibleClients.flatMap(c => (clientLogs[c.id] || []).map(t => ({ ...t, cid: c.id, cName: c.name })));
   const tabTitles = {
     home: 'Home',
@@ -88,6 +97,53 @@ const App = () => {
   };
   
   const isMinimized = sidebarMinimized || activeTab === 'clients' || selectedClient !== null;
+
+  const handleUpdateProfileName = (updatedName) => {
+    if (!updatedName?.trim() || !currentUser) return;
+    setUsers(prevUsers => prevUsers.map(user =>
+      user.id === currentUser.id ? { ...user, name: updatedName.trim() } : user
+    ));
+  };
+
+  const handleChangePassword = (nextPassword) => {
+    if (!nextPassword || !currentUser) return;
+    setUserPasswords(prev => ({
+      ...prev,
+      [currentUser.id]: nextPassword
+    }));
+  };
+
+  const handleLogin = (email, password) => {
+    if (!email || !password) {
+      setLoginError('Enter both email and password');
+      return;
+    }
+
+    const isValidTestLogin =
+      email.toLowerCase() === TEST_LOGIN_EMAIL.toLowerCase() &&
+      password === TEST_LOGIN_PASSWORD;
+
+    if (!isValidTestLogin) {
+      setLoginError('Invalid login credentials');
+      return;
+    }
+
+    setCurrentUserId(1);
+    setLoginError('');
+    setIsProfileOpen(false);
+    setIsNotifOpen(false);
+    setSelectedClient(null);
+    setActiveTab('home');
+  };
+
+  const handleLogout = () => {
+    setIsProfileOpen(false);
+    setIsNotifOpen(false);
+    setSelectedClient(null);
+    setActiveTab('home');
+    setCurrentUserId(null);
+    setLoginError('');
+  };
 
   useEffect(() => {
     if (activeTab === 'master-data' && !canSeeControlCenter) {
@@ -107,8 +163,18 @@ const App = () => {
     }
   }, [activeTab, canSeeControlCenter, canSeeSettings, canSeeUserManagement, canSeeEmployeeView, canSeeMetrics]);
 
+  if (!currentUser) {
+    return <LoginView onLogin={handleLogin} loginError={loginError} />;
+  }
+
   return (
-    <div className="flex w-screen h-screen bg-white text-black text-sm overflow-hidden font-sans">
+    <div
+      className="flex w-screen h-screen text-black text-sm overflow-hidden font-sans"
+      style={{
+        background:
+          'radial-gradient(58% 64% at 8% 10%, rgba(241, 94, 88, 0.14) 0%, rgba(241, 94, 88, 0) 62%), radial-gradient(48% 56% at 52% 92%, rgba(82, 110, 255, 0.13) 0%, rgba(82, 110, 255, 0) 64%), radial-gradient(36% 48% at 96% 12%, rgba(236, 232, 123, 0.15) 0%, rgba(236, 232, 123, 0) 62%), linear-gradient(140deg, #fff7f8 0%, #f7f8ff 58%, #fffde9 100%)'
+      }}
+    >
       
       <Sidebar 
         activeTab={activeTab} 
@@ -123,20 +189,45 @@ const App = () => {
         canSeeMetrics={canSeeMetrics}
       />
 
-      <div className="flex-1 flex flex-col bg-white overflow-hidden relative border-l border-slate-100">
+      <div className="flex-1 flex flex-col bg-transparent overflow-hidden relative border-l border-white/40">
         
-        <header className="h-16 px-8 flex items-center justify-between border-b border-slate-100 font-black bg-white uppercase sticky top-0 z-20">
+        <header className="h-16 px-8 flex items-center justify-between border-b border-white/50 font-black bg-white/45 backdrop-blur-sm uppercase sticky top-0 z-20">
           <h2 className="tracking-tight text-black">{selectedClient ? selectedClient.name : (tabTitles[activeTab] || activeTab)}</h2>
           <div className="flex items-center gap-4">
-            <Notifications isNotifOpen={isNotifOpen} setIsNotifOpen={setIsNotifOpen} setIsProfileOpen={setIsProfileOpen} notifications={notifications} />
-            <ProfileDropdown isProfileOpen={isProfileOpen} setIsProfileOpen={setIsProfileOpen} setIsNotifOpen={setIsNotifOpen} currentUser={currentUser} />
+            <Notifications
+              isNotifOpen={isNotifOpen}
+              setIsNotifOpen={setIsNotifOpen}
+              setIsProfileOpen={setIsProfileOpen}
+              notifications={notifications}
+              currentUser={currentUser}
+              users={users}
+              clients={clients}
+              clientLogs={clientLogs}
+            />
+            <ProfileDropdown
+              isProfileOpen={isProfileOpen}
+              setIsProfileOpen={setIsProfileOpen}
+              setIsNotifOpen={setIsNotifOpen}
+              currentUser={currentUser}
+              onUpdateProfileName={handleUpdateProfileName}
+              onChangePassword={handleChangePassword}
+              onLogout={handleLogout}
+            />
           </div>
         </header>
 
-        <main className="p-6 overflow-y-auto flex-1 bg-white">
+        <main className="p-6 overflow-y-auto flex-1 bg-transparent">
           
           {activeTab === 'home' && !selectedClient && (
-            <HomeView accessibleClients={accessibleClients} allTasks={allTasks} clientLogs={clientLogs} setSelectedClient={setSelectedClient} />
+            <HomeView
+              accessibleClients={accessibleClients}
+              allTasks={allTasks}
+              clientLogs={clientLogs}
+              setSelectedClient={setSelectedClient}
+              setClientLogs={setClientLogs}
+              currentUser={currentUser}
+              taskCategories={taskCategories}
+            />
           )}
 
           {(activeTab === 'clients' || selectedClient) && (
@@ -153,6 +244,7 @@ const App = () => {
               users={users}
               setUsers={setUsers} 
               taskCategories={taskCategories}
+              setNotifications={setNotifications}
             />
           )}
 

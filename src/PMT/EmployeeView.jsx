@@ -322,7 +322,7 @@ const EmployeeView = ({ users = [], regions = [], clients = [], clientLogs = {} 
   const availableDirectors = users.filter(user => user.role === 'Director' || user.role === 'Business Head');
 
   return (
-    <div className="bg-slate-100 min-h-full p-4 space-y-4 text-left animate-in fade-in duration-500">
+    <div className="min-h-full p-4 space-y-4 text-left animate-in fade-in duration-500">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
         <h2 className="text-lg font-bold text-slate-900">Employee Insights</h2>
 

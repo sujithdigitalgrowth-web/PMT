@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Search, ChevronLeft, Plus, Clock, Activity, CheckCircle, X, Star, Edit2, Trash2, Eye, Crown, AlertCircle } from 'lucide-react';
+import { Search, ChevronLeft, Plus, Clock, Activity, CheckCircle, X, Star, Edit2, Trash2, Eye, Crown, AlertCircle, Play, Pause, Square } from 'lucide-react';
 import DatePicker from "react-datepicker";
 import { format, subDays, parse } from 'date-fns';
 import "react-datepicker/dist/react-datepicker.css";
@@ -7,7 +7,7 @@ import "react-datepicker/dist/react-datepicker.css";
 const ClientView = ({ 
   selectedClient, setSelectedClient, clients = [], setClients, 
   clientLogs = {}, setClientLogs, clientSearch = "", setClientSearch,
-  users = [], setUsers, currentUser, taskCategories = []
+  users = [], setUsers, currentUser, taskCategories = [], setNotifications = () => {}
 }) => {
   const managementRoles = ['Super Admin', 'Director', 'Business Head', 'Snr Manager', 'Manager', 'Project Manager', 'CSM'];
   const executionRoles = ['Snr Executive', 'Executive', 'Intern'];
@@ -29,6 +29,9 @@ const ClientView = ({
   const [newTaskCategory, setNewTaskCategory] = useState("");
   const [taskCategoryQuery, setTaskCategoryQuery] = useState("");
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
+  const [newTaskAssigneeId, setNewTaskAssigneeId] = useState("");
+  const [assigneeQuery, setAssigneeQuery] = useState("");
+  const [showAssigneeMenu, setShowAssigneeMenu] = useState(false);
   const [taskFormError, setTaskFormError] = useState("");
   const [newTaskRepeat, setNewTaskRepeat] = useState('Once');
   const [showReportsModal, setShowReportsModal] = useState(false);
@@ -38,6 +41,7 @@ const ClientView = ({
   const [customReportName, setCustomReportName] = useState("");
   const [customReportUrl, setCustomReportUrl] = useState("");
   const [editingCustomReportId, setEditingCustomReportId] = useState(null);
+  const [expandedTaskId, setExpandedTaskId] = useState(null);
 
   const isManagement = managementRoles.includes(currentUser?.role);
   const canAddClient = currentUser?.role === 'Super Admin' || currentUser?.role === 'Director';
@@ -51,6 +55,10 @@ const ClientView = ({
     const intervalId = setInterval(() => setTimerTick(Date.now()), 1000);
     return () => clearInterval(intervalId);
   }, [clientLogs]);
+
+  useEffect(() => {
+    setExpandedTaskId(null);
+  }, [selectedClient?.id, taskStatusFilter]);
 
   const formatDuration = (milliseconds = 0) => {
     const totalSeconds = Math.floor(milliseconds / 1000);
@@ -141,14 +149,14 @@ const ClientView = ({
 
     return {
       open: logs.filter(l => l.status === 'Pending').length,
-      wip: logs.filter(l => l.status === 'WIP').length,
+      wip: logs.filter(l => l.timerState === 'running').length,
       done: logs.filter(l => l.status === 'Done').length,
-      // Logic for pending tasks from last 2 days
+      // Tasks older than 48 hours and not completed yet
       recentPending: logs.filter(l => {
-        if (l.status !== 'Pending') return false;
+        if (l.status === 'Done') return false;
         try {
           const taskDate = parse(l.date, 'do MMM yyyy', new Date());
-          return taskDate >= twoDaysAgo;
+          return taskDate <= twoDaysAgo;
         } catch (e) { return false; }
       }).length
     };
@@ -157,8 +165,9 @@ const ClientView = ({
   const addTaskEntry = (e) => {
     e.preventDefault();
     const trimmedComment = newTaskComment.trim();
-    if (!trimmedComment || !newTaskCategory) {
-      setTaskFormError('Task description and task category are required.');
+    const selectedAssignee = (users || []).find(u => String(u.id) === String(newTaskAssigneeId));
+    if (!trimmedComment || !newTaskCategory || !selectedAssignee) {
+      setTaskFormError('Task description, task category and assignee are required.');
       return;
     }
     const newLog = {
@@ -168,6 +177,9 @@ const ClientView = ({
       creatorId: currentUser?.id || null,
       creatorName: currentUser?.name || 'Unassigned',
       creatorRole: currentUser?.role || 'Employee',
+      assigneeId: selectedAssignee.id,
+      assigneeName: selectedAssignee.name,
+      assigneeEmail: selectedAssignee.email || '',
       category: newTaskCategory,
       repeatFrequency: newTaskRepeat,
       timerState: 'idle',
@@ -175,6 +187,23 @@ const ClientView = ({
       elapsedMs: 0,
       timeTaken: null
     };
+
+    setNotifications(prev => [
+      {
+        id: `assign-${Date.now()}`,
+        text: `Task assigned to ${selectedAssignee.name}: ${trimmedComment}`,
+        time: 'Just now',
+        type: 'assignment',
+        read: false,
+        clientId: selectedClient.id,
+        clientName: selectedClient.name,
+        assigneeId: selectedAssignee.id,
+        assigneeName: selectedAssignee.name,
+        assigneeEmail: selectedAssignee.email || ''
+      },
+      ...prev
+    ]);
+
     setClientLogs({
       ...clientLogs,
       [selectedClient.id]: [newLog, ...(clientLogs[selectedClient.id] || [])]
@@ -183,6 +212,9 @@ const ClientView = ({
     setNewTaskCategory("");
     setTaskCategoryQuery("");
     setShowCategoryMenu(false);
+    setNewTaskAssigneeId("");
+    setAssigneeQuery("");
+    setShowAssigneeMenu(false);
     setTaskFormError("");
     setNewTaskRepeat('Once');
     setShowTaskForm(false);
@@ -267,8 +299,13 @@ const ClientView = ({
     const filteredTaskCategories = availableTaskCategories.filter(category =>
       category.toLowerCase().includes(taskCategoryQuery.toLowerCase())
     );
+    const projectStaff = getProjectStaff(selectedClient.name);
+    const assignableUsers = [...projectStaff.admins, ...projectStaff.employees];
+    const filteredAssignees = assignableUsers.filter(user =>
+      `${user.name} ${user.email || ''}`.toLowerCase().includes(assigneeQuery.toLowerCase())
+    );
     return (
-      <div className="bg-[#f8fafc] min-h-full p-4 font-sans animate-in fade-in duration-500 text-left space-y-3">
+      <div className="min-h-full p-4 font-sans animate-in fade-in duration-500 text-left space-y-3">
         {/* Header Row */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -305,6 +342,9 @@ const ClientView = ({
                 setNewTaskCategory('');
                 setTaskCategoryQuery('');
                 setShowCategoryMenu(false);
+                setNewTaskAssigneeId('');
+                setAssigneeQuery('');
+                setShowAssigneeMenu(false);
                 setTaskFormError('');
                 setNewTaskRepeat('Once');
                 setShowTaskForm(true);
@@ -341,7 +381,7 @@ const ClientView = ({
           </div>
           <div className="bg-white p-2 rounded-lg border border-red-100 shadow-sm flex items-center justify-between min-h-[62px]">
             <div>
-              <p className="text-[10px] font-semibold text-red-500 uppercase tracking-wider">Last 48H Pending</p>
+              <p className="text-[10px] font-semibold text-red-500 uppercase tracking-wider">48H+ Not Done</p>
               <p className="text-base font-bold text-red-600 mt-0.5">{stats.recentPending}</p>
             </div>
             <div className="p-1 bg-red-50 rounded-md"><AlertCircle size={12} className="text-red-500"/></div>
@@ -350,105 +390,189 @@ const ClientView = ({
 
         {/* Task Table */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <table className="w-full border-collapse table-fixed">
-            <colgroup>
-              <col className="w-[10%]" />
-              <col className="w-[10%]" />
-              <col className="w-[12%]" />
-              <col className="w-[48%]" />
-              <col className="w-[10%]" />
-              <col className="w-[8%]" />
-            </colgroup>
-            <thead>
-            <tr className="bg-slate-100 border-b border-slate-200 text-[10px] font-semibold uppercase tracking-wider text-slate-700">
-                <th className="px-3 py-2 text-left">Date</th>
-                <th className="px-2 py-2 text-left">Status</th>
-                <th className="px-3 py-2 text-left">Task Category</th>
-                <th className="px-4 py-2 text-left">Task Description</th>
-                <th className="px-2 py-2 text-right">Timer</th>
-                <th className="px-4 py-2 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredTaskLogs.map(log => (
-                <tr key={log.id} className="hover:bg-slate-50 transition-all group align-top">
-                  <td className="px-3 py-3 text-sm font-medium text-slate-600 whitespace-nowrap">{log.date}</td>
-                  <td className="px-2 py-3 whitespace-nowrap">
-                    <select 
-                      className={`text-xs border-none rounded-md px-2 py-1 font-semibold outline-none cursor-pointer min-w-[78px] ${
-                        log.status === 'Done' ? 'bg-emerald-100 text-emerald-600' : 
-                        log.status === 'WIP' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'
-                      }`} 
-                      value={log.status} 
-                      onChange={e => {
-                        const updated = clientLogs[selectedClient.id].map(l => l.id === log.id ? { ...l, status: e.target.value } : l);
-                        setClientLogs({ ...clientLogs, [selectedClient.id]: updated });
-                      }}
-                    >
-                      <option value="Pending">Pending</option>
-                      <option value="WIP">WIP</option>
-                      <option value="Done">Done</option>
-                    </select>
-                  </td>
-                  <td className="px-3 py-3 whitespace-nowrap">
-                    <select
-                      className="text-xs border border-slate-200 rounded-md px-2 py-1 font-semibold outline-none cursor-pointer min-w-[96px] bg-white text-slate-700"
-                      value={log.category || taskCategories[0] || 'General'}
-                      onChange={e => {
-                        const updated = clientLogs[selectedClient.id].map(l => l.id === log.id ? { ...l, category: e.target.value } : l);
-                        setClientLogs({ ...clientLogs, [selectedClient.id]: updated });
-                      }}
-                    >
-                      {(taskCategories.length ? taskCategories : ['General']).map(category => (
-                        <option key={category} value={category}>{category}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-4 py-3">
-                    {editingId === log.id && editField === 'comment' ? (
-                      <textarea className="w-full p-3 border border-blue-600 rounded-lg text-sm font-medium bg-white outline-none" value={tempValue} autoFocus onBlur={() => handleSaveInline(log.id)} onChange={(e) => setTempValue(e.target.value)} />
-                    ) : (
-                      <div className="flex items-start justify-between group/cell">
-                        <span className="text-sm font-medium text-slate-700 leading-5 pr-3 break-words">{log.comment}</span>
-                        <button onClick={() => { setEditingId(log.id); setEditField('comment'); setTempValue(log.comment); }} className="opacity-0 group-hover/cell:opacity-100 p-1 text-blue-400"><Edit2 size={12}/></button>
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-2 py-3 text-right">
-                    <div className="flex flex-col items-end gap-1">
-                      <div className="flex flex-col items-end gap-1">
-                        <button
-                          onClick={() => startTaskTimer(log.id)}
-                          className="w-[46px] px-1 py-0.5 text-[8px] font-semibold rounded-md border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-all"
-                        >
-                          Start
-                        </button>
-                        <button
-                          onClick={() => pauseTaskTimer(log.id)}
-                          className="w-[46px] px-1 py-0.5 text-[8px] font-semibold rounded-md border border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-all"
-                        >
-                          Pause
-                        </button>
-                        <button
-                          onClick={() => stopTaskTimer(log.id)}
-                          className="w-[46px] px-1 py-0.5 text-[8px] font-semibold rounded-md border border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-all"
-                        >
-                          Stop
-                        </button>
-                      </div>
-                      <span className="text-[10px] font-semibold text-slate-700 mt-0.5">{formatDuration(getElapsedMs(log))}</span>
-                      {log.timerState === 'stopped' && log.timeTaken && (
-                        <span className="text-[8px] font-medium text-emerald-600">Time: {log.timeTaken}</span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <button onClick={() => { if(window.confirm("Are you sure you want to delete this task?")) { const upd = clientLogs[selectedClient.id].filter(l => l.id !== log.id); setClientLogs({...clientLogs, [selectedClient.id]: upd}); } }} className="p-1.5 text-slate-300 hover:text-red-500 transition-all"><Trash2 size={15}/></button>
-                  </td>
+          <div className="max-h-[68vh] overflow-y-auto">
+            <table className="w-full border-collapse table-fixed">
+              <colgroup>
+                <col className="w-[7%]" />
+                <col className="w-[7%]" />
+                <col className="w-[9%]" />
+                <col className="w-[10%]" />
+                <col className="w-[50%]" />
+                <col className="w-[10%]" />
+                <col className="w-[7%]" />
+              </colgroup>
+              <thead>
+                <tr className="sticky top-0 z-10 bg-slate-100 border-b border-slate-200 text-[10px] font-semibold uppercase tracking-wider text-slate-700">
+                  <th className="px-1.5 py-2 text-left">Date</th>
+                  <th className="px-1 py-2 text-left">Status</th>
+                  <th className="px-1.5 py-2 text-left">Task Category</th>
+                  <th className="px-1.5 py-2 text-left">Assigned To</th>
+                  <th className="px-2 py-2 text-left">Task Description</th>
+                  <th className="px-1.5 py-2 text-right">Timer</th>
+                  <th className="px-2 py-2 text-right">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredTaskLogs.map(log => {
+                  const isExpanded = expandedTaskId === log.id;
+                  const timerState = log.timerState || (log.elapsedMs > 0 ? 'paused' : 'idle');
+
+                  return (
+                    <tr
+                      key={log.id}
+                      onClick={() => setExpandedTaskId(isExpanded ? null : log.id)}
+                      className={`hover:bg-slate-50 transition-all group align-top cursor-pointer ${isExpanded ? 'bg-slate-50/70' : ''}`}
+                    >
+                      <td className="px-1.5 py-2 text-xs font-medium text-slate-600 whitespace-nowrap">{String(log.date || '').replace(/\s+\d{4}$/, '')}</td>
+                      <td className="px-1 py-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <select
+                          className={`text-[10px] border-none rounded-md px-1 py-0.5 font-semibold outline-none cursor-pointer min-w-[60px] ${
+                            log.status === 'Done' ? 'bg-emerald-100 text-emerald-600' :
+                            log.status === 'WIP' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'
+                          }`}
+                          value={log.status}
+                          onChange={e => {
+                            const updated = clientLogs[selectedClient.id].map(l => l.id === log.id ? { ...l, status: e.target.value } : l);
+                            setClientLogs({ ...clientLogs, [selectedClient.id]: updated });
+                          }}
+                        >
+                          <option value="Pending">Pending</option>
+                          <option value="WIP">WIP</option>
+                          <option value="Done">Done</option>
+                        </select>
+                      </td>
+                      <td className="px-1.5 py-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <select
+                          className="text-[10px] border border-slate-200 rounded-md px-1 py-0.5 font-semibold outline-none cursor-pointer min-w-[72px] bg-white text-slate-700"
+                          value={log.category || taskCategories[0] || 'General'}
+                          onChange={e => {
+                            const updated = clientLogs[selectedClient.id].map(l => l.id === log.id ? { ...l, category: e.target.value } : l);
+                            setClientLogs({ ...clientLogs, [selectedClient.id]: updated });
+                          }}
+                        >
+                          {(taskCategories.length ? taskCategories : ['General']).map(category => (
+                            <option key={category} value={category}>{category}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-1.5 py-2 text-xs text-slate-600">
+                        <div className="leading-4">
+                          <p className="font-semibold text-slate-700 truncate">{log.assigneeName || 'Unassigned'}</p>
+                          {isExpanded && log.assigneeEmail && (
+                            <p className="text-[10px] text-slate-500 truncate">{log.assigneeEmail}</p>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-2 py-2">
+                        {editingId === log.id && editField === 'comment' ? (
+                          <textarea
+                            className="w-full p-2 border border-blue-600 rounded-lg text-sm font-medium bg-white outline-none"
+                            value={tempValue}
+                            autoFocus
+                            onClick={(e) => e.stopPropagation()}
+                            onBlur={() => handleSaveInline(log.id)}
+                            onChange={(e) => setTempValue(e.target.value)}
+                          />
+                        ) : (
+                          <div className="flex items-start justify-between gap-2 group/cell">
+                            <div className="flex-1 min-w-0">
+                              <span className={`text-sm font-medium text-slate-700 leading-5 pr-1 break-words ${isExpanded ? '' : 'line-clamp-1'}`}>
+                                {log.comment}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1 opacity-0 group-hover/cell:opacity-100">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingId(log.id);
+                                  setEditField('comment');
+                                  setTempValue(log.comment);
+                                }}
+                                className="p-1 text-blue-400"
+                                title="Edit task"
+                              >
+                                <Edit2 size={12}/>
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (window.confirm("Are you sure you want to delete this task?")) {
+                                    const upd = clientLogs[selectedClient.id].filter(l => l.id !== log.id);
+                                    setClientLogs({ ...clientLogs, [selectedClient.id]: upd });
+                                  }
+                                }}
+                                className="p-1 text-slate-300 hover:text-red-500 transition-all"
+                                title="Delete task"
+                              >
+                                <Trash2 size={14}/>
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-1.5 py-2 text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="text-[10px] font-semibold text-slate-700">{formatDuration(getElapsedMs(log))}</span>
+                          {isExpanded && timerState === 'stopped' && log.timeTaken && (
+                            <span className="text-[8px] font-medium text-emerald-600">Time: {log.timeTaken}</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-2 py-2 text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">
+                          {(timerState === 'idle' || timerState === 'stopped') && (
+                            <button
+                              onClick={() => startTaskTimer(log.id)}
+                              className="p-1.5 rounded-md border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-all"
+                              title="Start timer"
+                            >
+                              <Play size={13} />
+                            </button>
+                          )}
+                          {timerState === 'running' && (
+                            <>
+                              <button
+                                onClick={() => pauseTaskTimer(log.id)}
+                                className="p-1.5 rounded-md border border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-all"
+                                title="Pause timer"
+                              >
+                                <Pause size={13} />
+                              </button>
+                              <button
+                                onClick={() => stopTaskTimer(log.id)}
+                                className="p-1.5 rounded-md border border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-all"
+                                title="Stop timer"
+                              >
+                                <Square size={13} />
+                              </button>
+                            </>
+                          )}
+                          {timerState === 'paused' && (
+                            <>
+                              <button
+                                onClick={() => startTaskTimer(log.id)}
+                                className="p-1.5 rounded-md border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-all"
+                                title="Resume timer"
+                              >
+                                <Play size={13} />
+                              </button>
+                              <button
+                                onClick={() => stopTaskTimer(log.id)}
+                                className="p-1.5 rounded-md border border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-all"
+                                title="Stop timer"
+                              >
+                                <Square size={13} />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {showReportsModal && (
@@ -638,6 +762,7 @@ const ClientView = ({
                     setShowTaskForm(false);
                     setTaskFormError('');
                     setShowCategoryMenu(false);
+                    setShowAssigneeMenu(false);
                   }}
                   className="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg transition-all"
                 >
@@ -728,6 +853,51 @@ const ClientView = ({
                       </div>
                     </div>
                     <div className="space-y-1.5">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Assign To <span className="text-red-500">*</span></label>
+                      <div className="relative">
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Search assignee"
+                          className="w-full bg-white border border-slate-200 rounded-lg pl-9 pr-3 py-2 text-sm font-medium text-slate-700 outline-none focus:ring-2 ring-blue-500/20"
+                          value={assigneeQuery}
+                          onFocus={() => setShowAssigneeMenu(true)}
+                          onChange={(e) => {
+                            setAssigneeQuery(e.target.value);
+                            setNewTaskAssigneeId('');
+                            setShowAssigneeMenu(true);
+                            if (taskFormError) setTaskFormError('');
+                          }}
+                        />
+                        {showAssigneeMenu && (
+                          <div className="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-44 overflow-y-auto">
+                            {filteredAssignees.length ? (
+                              filteredAssignees.map(user => (
+                                <button
+                                  key={user.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setNewTaskAssigneeId(user.id);
+                                    setAssigneeQuery(user.name);
+                                    setShowAssigneeMenu(false);
+                                    if (taskFormError) setTaskFormError('');
+                                  }}
+                                  className="w-full text-left px-3 py-2 bg-white hover:bg-slate-50 transition-all"
+                                >
+                                  <p className="text-sm font-semibold text-slate-700">{user.name}</p>
+                                  <p className="text-xs text-slate-500">{user.email || 'No email'}</p>
+                                </button>
+                              ))
+                            ) : (
+                              <p className="px-3 py-2 text-sm text-slate-500">
+                                {assignableUsers.length ? 'No matching assignee found' : 'No team members assigned to this client'}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
                       <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Task Description <span className="text-red-500">*</span></label>
                       <textarea
                         placeholder="Describe the task details"
@@ -786,7 +956,7 @@ const ClientView = ({
                   <button
                     type="submit"
                     className="bg-blue-600 text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={!availableTaskCategories.length}
+                    disabled={!availableTaskCategories.length || !assignableUsers.length}
                   >
                     Add to Log
                   </button>
@@ -803,20 +973,20 @@ const ClientView = ({
   const filteredClients = clients.filter(c => c.name.toLowerCase().includes(clientSearch.toLowerCase()));
 
   return (
-    <div className="p-4 space-y-8 animate-in fade-in duration-500 text-left bg-slate-100 min-h-full">
+    <div className="p-3 space-y-5 animate-in fade-in duration-500 text-left min-h-full">
       <div className="flex justify-between items-center">
-        <div className="relative w-80">
-          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"/>
-          <input type="text" placeholder="Filter Clients..." className="w-full bg-white border border-slate-200 rounded-lg pl-12 pr-4 py-2.5 text-sm font-medium outline-none focus:ring-2 ring-blue-500/20 shadow-sm" value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} />
+        <div className="relative w-72">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
+          <input type="text" placeholder="Filter Clients..." className="w-full bg-white border border-slate-200 rounded-lg pl-9 pr-3 py-2 text-xs font-medium outline-none focus:ring-2 ring-blue-500/20 shadow-sm text-slate-700" value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} />
         </div>
         {canAddClient && (
-          <button onClick={() => setShowClientModal(true)} className="bg-blue-600 text-white px-5 py-2.5 rounded-lg font-bold text-sm tracking-wide hover:bg-blue-700 transition-all flex items-center gap-2 shadow-md">
-            <Plus size={18}/> Add Client
+          <button onClick={() => setShowClientModal(true)} className="bg-blue-600 text-white px-3.5 py-2 rounded-lg font-semibold text-xs hover:bg-blue-700 transition-all flex items-center gap-1.5 shadow-md">
+            <Plus size={14}/> Add Client
           </button>
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {filteredClients.map(c => {
           const counts = getTaskCounts(c.id);
           const staff = getProjectStaff(c.name);
@@ -841,12 +1011,12 @@ const ClientView = ({
             <div
               key={c.id}
               onClick={() => setSelectedClient(c)}
-              className="group bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-sm hover:shadow-lg hover:border-blue-400 transition-all cursor-pointer"
+              className="group bg-white border-2 border-slate-200 rounded-2xl p-4 shadow-sm hover:shadow-lg hover:border-blue-400 transition-all cursor-pointer"
             >
               {/* Header with Account Name and Avg Time */}
-              <div className="mb-5 flex items-start justify-between">
-                <h3 className="text-lg font-bold text-slate-900 uppercase tracking-tight group-hover:text-blue-600 transition-all">{c.name}</h3>
-                <div className="bg-gradient-to-br from-purple-50 to-indigo-50 px-3 py-2 rounded-lg border border-purple-200 text-right">
+              <div className="mb-3 flex items-start justify-between gap-2">
+                <h3 className="text-base font-bold text-slate-900 uppercase tracking-tight group-hover:text-blue-600 transition-all">{c.name}</h3>
+                <div className="bg-gradient-to-br from-purple-50 to-indigo-50 px-2.5 py-1.5 rounded-lg border border-purple-200 text-right">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-purple-600 mb-0.5">Avg Daily</p>
                   <p className="text-sm font-bold text-purple-700">{avgTimeStr}</p>
                 </div>
@@ -854,12 +1024,12 @@ const ClientView = ({
 
               {/* Leadership Section */}
               {staff.admins.length > 0 && (
-                <div className="mb-4 pb-4 border-b border-slate-100">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Leadership</p>
-                  <div className="flex flex-wrap gap-2">
+                <div className="mb-3 pb-3 border-b border-slate-100">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Leadership</p>
+                  <div className="flex flex-wrap gap-1.5">
                     {staff.admins.map(admin => (
-                      <div key={admin.id} className="flex items-center gap-1 bg-blue-100 px-2.5 py-1 rounded-full border border-blue-300">
-                        <Crown size={11} className="text-blue-600 fill-blue-600" />
+                      <div key={admin.id} className="flex items-center gap-1 bg-blue-100 px-2 py-0.5 rounded-full border border-blue-300">
+                        <Crown size={10} className="text-blue-600 fill-blue-600" />
                         <span className="text-xs font-semibold text-blue-700">{admin.name}</span>
                       </div>
                     ))}
@@ -869,11 +1039,11 @@ const ClientView = ({
 
               {/* Team Section */}
               {staff.employees.length > 0 && (
-                <div className="mb-5 pb-4 border-b border-slate-100">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Team</p>
-                  <div className="flex flex-wrap gap-2">
+                <div className="mb-3 pb-3 border-b border-slate-100">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Team</p>
+                  <div className="flex flex-wrap gap-1.5">
                     {staff.employees.map(emp => (
-                      <div key={emp.id} className="px-2.5 py-1 rounded-full border border-slate-200 bg-slate-50 shadow-sm">
+                      <div key={emp.id} className="px-2 py-0.5 rounded-full border border-slate-200 bg-slate-50 shadow-sm">
                         <span className="text-xs font-semibold text-slate-600">{emp.name}</span>
                       </div>
                     ))}
@@ -882,19 +1052,19 @@ const ClientView = ({
               )}
 
               {/* Status Cards */}
-              <div className="grid grid-cols-3 gap-2 mb-5">
-                <div className="bg-orange-50 px-3 py-3 rounded-xl border border-orange-200 text-center">
-                  <Clock size={16} className="text-orange-500 mx-auto mb-1" />
+              <div className="grid grid-cols-3 gap-1.5 mb-3">
+                <div className="bg-orange-50 px-2 py-2 rounded-xl border border-orange-200 text-center">
+                  <Clock size={14} className="text-orange-500 mx-auto mb-0.5" />
                   <p className="text-xs font-bold text-orange-600">{counts.open}</p>
                   <p className="text-[9px] text-orange-500 font-medium">Pending</p>
                 </div>
-                <div className="bg-blue-50 px-3 py-3 rounded-xl border border-blue-200 text-center">
-                  <Activity size={16} className="text-blue-500 mx-auto mb-1" />
+                <div className="bg-blue-50 px-2 py-2 rounded-xl border border-blue-200 text-center">
+                  <Activity size={14} className="text-blue-500 mx-auto mb-0.5" />
                   <p className="text-xs font-bold text-blue-600">{counts.wip}</p>
                   <p className="text-[9px] text-blue-500 font-medium">WIP</p>
                 </div>
-                <div className="bg-emerald-50 px-3 py-3 rounded-xl border border-emerald-200 text-center">
-                  <CheckCircle size={16} className="text-emerald-500 mx-auto mb-1" />
+                <div className="bg-emerald-50 px-2 py-2 rounded-xl border border-emerald-200 text-center">
+                  <CheckCircle size={14} className="text-emerald-500 mx-auto mb-0.5" />
                   <p className="text-xs font-bold text-emerald-600">{counts.done}</p>
                   <p className="text-[9px] text-emerald-500 font-medium">Done</p>
                 </div>
@@ -903,9 +1073,9 @@ const ClientView = ({
               {/* View Tasks Button */}
               <button
                 onClick={() => setSelectedClient(c)}
-                className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white py-3 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 hover:from-blue-700 hover:to-blue-600 transition-all shadow-md group-hover:shadow-lg"
+                className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white py-2.5 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 hover:from-blue-700 hover:to-blue-600 transition-all shadow-md group-hover:shadow-lg"
               >
-                <Eye size={16} /> View Tasks
+                <Eye size={15} /> View Tasks
               </button>
             </div>
           );

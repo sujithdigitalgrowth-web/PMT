@@ -2,12 +2,38 @@ import React, { useMemo } from 'react';
 import { Bell, Clock, UserPlus, Briefcase, CheckCircle, AlertTriangle } from 'lucide-react';
 import { parse, differenceInHours } from 'date-fns';
 
-const Notifications = ({ isNotifOpen, setIsNotifOpen, setIsProfileOpen, currentUser, users = [], clients = [], clientLogs = {} }) => {
+const Notifications = ({ isNotifOpen, setIsNotifOpen, setIsProfileOpen, currentUser, users = [], clients = [], clientLogs = {}, notifications = [] }) => {
+
+  const getNotificationStyle = (type) => {
+    if (type === 'alert') {
+      return { icon: <Clock size={12} className="text-orange-500" />, bg: 'bg-orange-50' };
+    }
+    if (type === 'assignment') {
+      return { icon: <Briefcase size={12} className="text-blue-500" />, bg: 'bg-blue-50' };
+    }
+    if (type === 'team') {
+      return { icon: <UserPlus size={12} className="text-emerald-500" />, bg: 'bg-emerald-50' };
+    }
+    return { icon: <AlertTriangle size={12} className="text-slate-500" />, bg: 'bg-slate-100' };
+  };
   
   // --- AUTOMATED TRIGGER LOGIC ---
   const activeNotifications = useMemo(() => {
     const list = [];
     const now = new Date();
+
+    // 0. MANUAL IN-APP NOTIFICATIONS (e.g. task assignment)
+    (notifications || []).forEach((item) => {
+      const style = getNotificationStyle(item.type);
+      list.push({
+        id: item.id,
+        text: item.text,
+        time: item.time || 'recently',
+        type: item.type || 'general',
+        icon: style.icon,
+        bg: style.bg
+      });
+    });
 
     // 1. TRIGGER: Pending Tasks > 24 Hours
     Object.keys(clientLogs).forEach(clientId => {
@@ -68,7 +94,7 @@ const Notifications = ({ isNotifOpen, setIsNotifOpen, setIsProfileOpen, currentU
     }
 
     return list.reverse(); // Newest first
-  }, [clientLogs, currentUser, users, clients]);
+  }, [clientLogs, currentUser, users, clients, notifications]);
 
   return (
     <div className="relative">

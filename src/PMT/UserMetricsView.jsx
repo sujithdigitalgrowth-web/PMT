@@ -200,7 +200,7 @@ const UserMetricsView = ({ users = [], clients = [], clientLogs = {} }) => {
   }, [users, clients, clientLogs, rangePreset, customRange]);
 
   return (
-    <div className="bg-slate-100 min-h-full p-4 space-y-4 text-left animate-in fade-in duration-500">
+    <div className="min-h-full p-4 space-y-4 text-left animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center md:justify-end gap-2">
         <select
           value={rangePreset}
@@ -234,15 +234,7 @@ const UserMetricsView = ({ users = [], clients = [], clientLogs = {} }) => {
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Completed Tasks</p>
-            <p className="text-lg font-bold text-slate-900 mt-0.5">{formatDuration(metrics.totalSeconds)}</p>
-          </div>
-          <div className="p-2 bg-emerald-50 rounded-lg"><Clock3 size={14} className="text-emerald-600" /></div>
-        </div>
-
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Total Tasks</p>

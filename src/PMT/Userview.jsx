@@ -71,7 +71,7 @@ const UserView = ({ users = [], setUsers, clients = [], settingsSearch = "", set
   };
 
   return (
-    <div className="w-full space-y-4 p-4 bg-slate-100 min-h-full font-sans text-left animate-in fade-in duration-500">
+    <div className="w-full space-y-4 p-4 min-h-full font-sans text-left animate-in fade-in duration-500">
       
       {/* 1. HEADER SECTION */}
       <div className="flex justify-between items-center">

@@ -23,19 +23,27 @@ const Sidebar = ({ activeTab, setActiveTab, setSelectedClient, isMinimized, setI
   });
 
   return (
-    <aside className={`${isMinimized ? 'w-20' : 'w-64'} bg-gradient-to-b from-slate-100 to-slate-50 border-r border-slate-200 flex flex-col transition-all duration-300 z-30`}>
+    <aside
+      className={`${isMinimized ? 'w-20' : 'w-64'} border-r border-white/45 bg-white/30 backdrop-blur-sm flex flex-col transition-all duration-300 z-30`}
+    >
       {/* XP Logo Section - Maintained professional black/white style */}
-      <div className="p-7 flex justify-start pl-7">
-        <div className="w-40 h-10 border-2 border-slate-800 bg-white rounded-xl flex items-center justify-center font-black text-slate-900 tracking-tighter shadow-sm">
+      <div className={`${isMinimized ? 'p-4 flex justify-center' : 'p-7 flex justify-start pl-7'}`}>
+        <div
+          className={`${
+            isMinimized
+              ? 'w-12 h-12 rounded-2xl'
+              : 'w-40 h-10 rounded-xl'
+          } border border-white/80 bg-white/75 backdrop-blur-sm flex items-center justify-center font-black text-slate-900 tracking-tighter shadow-sm`}
+        >
           {!logoError ? (
             <img
               src="/company-logo.png"
               alt="Company Logo"
-              className="h-7 w-auto object-contain"
+              className={`${isMinimized ? 'h-6' : 'h-7'} w-auto object-contain`}
               onError={() => setLogoError(true)}
             />
           ) : (
-            <span>Ethinos</span>
+            <span className={`${isMinimized ? 'text-base' : 'text-sm'}`}>{isMinimized ? 'E' : 'Ethinos'}</span>
           )}
         </div>
       </div>
@@ -54,11 +62,11 @@ const Sidebar = ({ activeTab, setActiveTab, setSelectedClient, isMinimized, setI
               }} 
               className={`w-full flex items-center ${isMinimized ? 'justify-center' : 'gap-4'} py-3.5 px-4 rounded-xl font-bold text-[11px] uppercase tracking-widest transition-all duration-200 ${
                 isActive 
-                  ? 'border border-blue-200 text-slate-900 bg-white shadow-sm' 
-                  : 'text-slate-600 border border-transparent hover:text-slate-900 hover:bg-white hover:border-slate-200 bg-transparent'
+                  ? 'border border-indigo-200/70 text-slate-900 bg-white/80 backdrop-blur-sm shadow-sm' 
+                  : 'text-slate-600 border border-transparent hover:text-slate-900 hover:bg-white/65 hover:border-white/80 bg-transparent'
               }`}
             >
-              <div className={`${isActive ? 'text-blue-600' : 'text-slate-500'}`}>
+              <div className={`${isActive ? 'text-indigo-600' : 'text-slate-500'}`}>
                 {item.icon}
               </div>
               
@@ -75,13 +83,13 @@ const Sidebar = ({ activeTab, setActiveTab, setSelectedClient, isMinimized, setI
       {/* Sidebar Footer */}
       <div className="p-4">
         {!isMinimized && (
-          <div className="p-4 bg-white/80 rounded-2xl border border-slate-200 mb-3 shadow-sm">
+          <div className="p-4 bg-white/70 rounded-2xl border border-white/80 mb-3 shadow-sm backdrop-blur-sm">
             <p className="text-[9px] font-black text-slate-600 uppercase tracking-tighter">Powered by Ethinos</p>
           </div>
         )}
         <button
           onClick={() => setIsMinimized && setIsMinimized(!isMinimized)}
-          className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-[11px] uppercase tracking-widest text-slate-600 border border-slate-200 hover:bg-white hover:border-blue-200 hover:text-slate-900 transition-all duration-200 bg-white/80 shadow-sm"
+          className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-[11px] uppercase tracking-widest text-slate-600 border border-white/80 hover:bg-white/90 hover:border-indigo-200/70 hover:text-slate-900 transition-all duration-200 bg-white/70 shadow-sm backdrop-blur-sm"
           title={isMinimized ? 'Expand Sidebar' : 'Minimize Sidebar'}
         >
           {isMinimized ? (
