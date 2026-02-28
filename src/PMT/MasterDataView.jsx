@@ -30,7 +30,18 @@ const MasterDataView = ({
   const [regionFilter, setRegionFilter] = useState('All');
 
   const normalizedRoles = useMemo(() => {
-    const defaults = ['Super Admin', 'Director'];
+    const defaults = [
+      'Super Admin',
+      'Director',
+      'Business Head',
+      'CSM',
+      'Snr Manager',
+      'Manager',
+      'Asst Manager',
+      'Snr Executive',
+      'Executive',
+      'Intern'
+    ];
     const merged = [...defaults, ...availableRoles];
     return [...new Set(merged)];
   }, [availableRoles]);
