@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Search, ChevronLeft, Plus, Clock, Activity, CheckCircle, X, Star, Edit2, Trash2, Eye, Crown, AlertCircle, Play, Pause, Square } from 'lucide-react';
+import { Search, ChevronLeft, Plus, Clock, Activity, CheckCircle, X, Star, Edit2, Trash2, Eye, Crown, AlertCircle, Play, Pause, Square, MoreVertical } from 'lucide-react';
 import DatePicker from "react-datepicker";
 import { format, subDays, parse } from 'date-fns';
 import "react-datepicker/dist/react-datepicker.css";
@@ -14,10 +14,12 @@ const ClientView = ({
   
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [showClientModal, setShowClientModal] = useState(false);
+  const [newEntityName, setNewEntityName] = useState("");
   const [newClientName, setNewClientName] = useState("");
   const [selectedAdmins, setSelectedAdmins] = useState([]);
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [taskDueDate, setTaskDueDate] = useState(null);
   const [newTaskComment, setNewTaskComment] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [editField, setEditField] = useState(""); 
@@ -42,6 +44,14 @@ const ClientView = ({
   const [customReportUrl, setCustomReportUrl] = useState("");
   const [editingCustomReportId, setEditingCustomReportId] = useState(null);
   const [expandedTaskId, setExpandedTaskId] = useState(null);
+  const [openMenuClientId, setOpenMenuClientId] = useState(null);
+  const [editingClientId, setEditingClientId] = useState(null);
+  const [editEntityName, setEditEntityName] = useState("");
+  const [editClientName, setEditClientName] = useState("");
+  const [editClientAdmins, setEditClientAdmins] = useState([]);
+  const [editClientEmployees, setEditClientEmployees] = useState([]);
+  const [editAdminQuery, setEditAdminQuery] = useState("");
+  const [editTeamQuery, setEditTeamQuery] = useState("");
 
   const isManagement = managementRoles.includes(currentUser?.role);
   const canAddClient = currentUser?.role === 'Super Admin' || currentUser?.role === 'Director';
@@ -143,6 +153,44 @@ const ClientView = ({
     };
   };
 
+  const getNameSearchScore = (name = '', query = '') => {
+    const normalizedName = String(name).toLowerCase();
+    const normalizedQuery = String(query).trim().toLowerCase();
+    if (!normalizedQuery) return Number.POSITIVE_INFINITY;
+
+    const compactName = normalizedName.replace(/\s+/g, '');
+    const compactQuery = normalizedQuery.replace(/\s+/g, '');
+
+    if (normalizedName === normalizedQuery) return 0;
+    if (normalizedName.startsWith(normalizedQuery)) return 1;
+    if (normalizedName.includes(normalizedQuery)) return 2;
+    if (compactName.includes(compactQuery)) return 3;
+
+    const nameTokens = normalizedName.split(/\s+/);
+    if (nameTokens.some(token => token.startsWith(normalizedQuery))) return 4;
+
+    let queryIndex = 0;
+    for (const char of compactName) {
+      if (char === compactQuery[queryIndex]) queryIndex += 1;
+      if (queryIndex === compactQuery.length) return 5;
+    }
+
+    return Number.POSITIVE_INFINITY;
+  };
+
+  const getUserSuggestionsByRole = (roleList, query) => {
+    const normalizedQuery = String(query || '').trim();
+    if (!normalizedQuery) return [];
+
+    return (users || [])
+      .filter(user => roleList.includes(user.role))
+      .map(user => ({ user, score: getNameSearchScore(user.name, normalizedQuery) }))
+      .filter(item => Number.isFinite(item.score))
+      .sort((left, right) => left.score - right.score || left.user.name.localeCompare(right.user.name))
+      .slice(0, 10)
+      .map(item => item.user);
+  };
+
   const getTaskCounts = (clientId) => {
     const logs = clientLogs[clientId] || [];
     const twoDaysAgo = subDays(new Date(), 2);
@@ -173,6 +221,7 @@ const ClientView = ({
     const newLog = {
       id: Date.now(),
       date: format(selectedDate, 'do MMM yyyy'),
+      dueDate: taskDueDate ? format(taskDueDate, 'do MMM yyyy') : null,
       comment: trimmedComment, result: '', status: 'Pending',
       creatorId: currentUser?.id || null,
       creatorName: currentUser?.name || 'Unassigned',
@@ -217,13 +266,18 @@ const ClientView = ({
     setShowAssigneeMenu(false);
     setTaskFormError("");
     setNewTaskRepeat('Once');
+    setTaskDueDate(null);
     setShowTaskForm(false);
   };
 
   const handleSaveClient = (e) => {
     e.preventDefault();
-    if (!newClientName) return;
-    const newClient = { id: `client-${Date.now()}`, name: newClientName };
+    if (!newEntityName || !newClientName) return;
+    const newClient = {
+      id: `client-${Date.now()}`,
+      name: newClientName,
+      entityName: newEntityName
+    };
     setClients([...clients, newClient]);
     const updatedUsers = users.map(u => {
       if (selectedAdmins.includes(u.id) || selectedEmployees.includes(u.id)) {
@@ -232,8 +286,101 @@ const ClientView = ({
       return u;
     });
     if(setUsers) setUsers(updatedUsers);
-    setNewClientName(""); setSelectedAdmins([]); setSelectedEmployees([]); 
+    setNewEntityName(""); setNewClientName(""); setSelectedAdmins([]); setSelectedEmployees([]); 
     setAdminQuery(""); setTeamQuery(""); setShowClientModal(false);
+  };
+
+  const handleDeleteClient = (clientId) => {
+    if (window.confirm('Are you sure you want to delete this client? This action cannot be undone.')) {
+      const clientToDelete = clients.find(c => c.id === clientId);
+      setClients(clients.filter(c => c.id !== clientId));
+      
+      // Remove client from all user's assigned projects
+      if (setUsers) {
+        const updatedUsers = users.map(u => ({
+          ...u,
+          assignedProjects: (u.assignedProjects || []).filter(p => p !== clientToDelete?.name)
+        }));
+        setUsers(updatedUsers);
+      }
+      
+      // Remove client logs
+      const newLogs = { ...clientLogs };
+      delete newLogs[clientId];
+      setClientLogs(newLogs);
+      
+      setOpenMenuClientId(null);
+    }
+  };
+
+  const handleEditClientClick = (client) => {
+    setEditingClientId(client.id);
+    setEditEntityName(client.entityName || "");
+    setEditClientName(client.name);
+    
+    // Get current admins and employees for this client
+    const staff = getProjectStaff(client.name);
+    setEditClientAdmins(staff.admins.map(a => a.id));
+    setEditClientEmployees(staff.employees.map(e => e.id));
+    setEditAdminQuery("");
+    setEditTeamQuery("");
+    setOpenMenuClientId(null);
+  };
+
+  const handleSaveEditClient = (e) => {
+    e.preventDefault();
+    if (!editEntityName || !editClientName) return;
+
+    const oldClientName = clients.find(c => c.id === editingClientId)?.name || "";
+    
+    // Update client name
+    const updatedClients = clients.map(c =>
+      c.id === editingClientId ? { ...c, entityName: editEntityName, name: editClientName } : c
+    );
+    setClients(updatedClients);
+
+    // Update user assignments
+    const updatedUsers = users.map(u => {
+      let updatedProjects = (u.assignedProjects || []).map(p => 
+        p === oldClientName ? editClientName : p
+      );
+      
+      const userWasAssigned = editClientAdmins.includes(u.id) || editClientEmployees.includes(u.id);
+      const userIsNowAssigned = editClientAdmins.includes(u.id) || editClientEmployees.includes(u.id);
+      
+      if (!userWasAssigned && userIsNowAssigned) {
+        updatedProjects = [...updatedProjects, editClientName];
+      } else if (userWasAssigned && !userIsNowAssigned) {
+        updatedProjects = updatedProjects.filter(p => p !== editClientName);
+      }
+      
+      return { ...u, assignedProjects: updatedProjects };
+    });
+    
+    if(setUsers) setUsers(updatedUsers);
+
+    // Update client logs if name changed
+    if (oldClientName !== editClientName) {
+      const newLogs = { ...clientLogs };
+      newLogs[editingClientId] = clientLogs[editingClientId] || [];
+      setClientLogs(newLogs);
+    }
+
+    setEditingClientId(null);
+    setEditEntityName("");
+    setEditClientName("");
+    setEditClientAdmins([]);
+    setEditClientEmployees([]);
+  };
+
+  const handleCancelEditClient = () => {
+    setEditingClientId(null);
+    setEditEntityName("");
+    setEditClientName("");
+    setEditClientAdmins([]);
+    setEditClientEmployees([]);
+    setEditAdminQuery("");
+    setEditTeamQuery("");
   };
 
   const handleSaveDailyReportLink = () => {
@@ -347,6 +494,7 @@ const ClientView = ({
                 setShowAssigneeMenu(false);
                 setTaskFormError('');
                 setNewTaskRepeat('Once');
+                setTaskDueDate(null);
                 setShowTaskForm(true);
               }}
               className="bg-blue-600 text-white px-3.5 py-2 rounded-lg font-semibold text-xs hover:bg-blue-700 transition-all flex items-center gap-1.5 shadow-md"
@@ -395,15 +543,17 @@ const ClientView = ({
               <colgroup>
                 <col className="w-[7%]" />
                 <col className="w-[7%]" />
+                <col className="w-[7%]" />
                 <col className="w-[9%]" />
                 <col className="w-[10%]" />
-                <col className="w-[50%]" />
+                <col className="w-[45%]" />
                 <col className="w-[10%]" />
-                <col className="w-[7%]" />
+                <col className="w-[5%]" />
               </colgroup>
               <thead>
                 <tr className="sticky top-0 z-10 bg-slate-100 border-b border-slate-200 text-[10px] font-semibold uppercase tracking-wider text-slate-700">
                   <th className="px-1.5 py-2 text-left">Date</th>
+                  <th className="px-1.5 py-2 text-left">Due Date</th>
                   <th className="px-1 py-2 text-left">Status</th>
                   <th className="px-1.5 py-2 text-left">Task Category</th>
                   <th className="px-1.5 py-2 text-left">Assigned To</th>
@@ -424,6 +574,19 @@ const ClientView = ({
                       className={`hover:bg-slate-50 transition-all group align-top cursor-pointer ${isExpanded ? 'bg-slate-50/70' : ''}`}
                     >
                       <td className="px-1.5 py-2 text-xs font-medium text-slate-600 whitespace-nowrap">{String(log.date || '').replace(/\s+\d{4}$/, '')}</td>
+                      <td className="px-1.5 py-2 text-xs font-medium whitespace-nowrap">
+                        {log.dueDate ? (
+                          <span className={`px-2 py-1 rounded-md font-semibold text-[9px] ${
+                            new Date(log.dueDate) < new Date() && log.status !== 'Done'
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-blue-100 text-blue-700'
+                          }`}>
+                            {log.dueDate}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-[9px]">-</span>
+                        )}
+                      </td>
                       <td className="px-1 py-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                         <select
                           className={`text-[10px] border-none rounded-md px-1 py-0.5 font-semibold outline-none cursor-pointer min-w-[60px] ${
@@ -763,6 +926,7 @@ const ClientView = ({
                     setTaskFormError('');
                     setShowCategoryMenu(false);
                     setShowAssigneeMenu(false);
+                    setTaskDueDate(null);
                   }}
                   className="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg transition-all"
                 >
@@ -911,7 +1075,7 @@ const ClientView = ({
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Repeat Frequency</label>
-                      <div className="flex gap-3">
+                      <div className="flex flex-wrap gap-3">
                         <label className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-all" style={newTaskRepeat === 'Once' ? {borderColor: '#2563eb', backgroundColor: '#eff6ff'} : {}}>
                           <input
                             type="radio"
@@ -934,6 +1098,17 @@ const ClientView = ({
                           />
                           <span className="text-xs font-semibold text-slate-700">Daily</span>
                         </label>
+                        <label className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-all" style={newTaskRepeat === 'Weekly' ? {borderColor: '#2563eb', backgroundColor: '#eff6ff'} : {}}>
+                          <input
+                            type="radio"
+                            name="repeat"
+                            value="Weekly"
+                            checked={newTaskRepeat === 'Weekly'}
+                            onChange={(e) => setNewTaskRepeat(e.target.value)}
+                            className="w-4 h-4 accent-blue-600 cursor-pointer"
+                          />
+                          <span className="text-xs font-semibold text-slate-700">Weekly</span>
+                        </label>
                         <label className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-all" style={newTaskRepeat === 'Monthly' ? {borderColor: '#2563eb', backgroundColor: '#eff6ff'} : {}}>
                           <input
                             type="radio"
@@ -946,6 +1121,29 @@ const ClientView = ({
                           <span className="text-xs font-semibold text-slate-700">Monthly</span>
                         </label>
                       </div>
+                      {newTaskRepeat === 'Weekly' && (
+                        <p className="text-[11px] text-blue-600 font-medium">Task will repeat every week on the same day</p>
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Due Date</label>
+                      <DatePicker
+                        selected={taskDueDate}
+                        onChange={(date) => setTaskDueDate(date)}
+                        placeholderText="Select due date"
+                        dateFormat="do MMM yyyy"
+                        minDate={new Date()}
+                        className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:ring-2 ring-blue-500/20"
+                      />
+                      {taskDueDate && (
+                        <button
+                          type="button"
+                          onClick={() => setTaskDueDate(null)}
+                          className="text-xs font-semibold text-red-600 hover:text-red-700 transition-all"
+                        >
+                          Clear Due Date
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1016,9 +1214,50 @@ const ClientView = ({
               {/* Header with Account Name and Avg Time */}
               <div className="mb-3 flex items-start justify-between gap-2">
                 <h3 className="text-base font-bold text-slate-900 uppercase tracking-tight group-hover:text-blue-600 transition-all">{c.name}</h3>
-                <div className="bg-gradient-to-br from-purple-50 to-indigo-50 px-2.5 py-1.5 rounded-lg border border-purple-200 text-right">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-purple-600 mb-0.5">Avg Daily</p>
-                  <p className="text-sm font-bold text-purple-700">{avgTimeStr}</p>
+                <div className="flex items-center gap-2">
+                  <div className="bg-purple-50 px-1.5 py-0.5 rounded-md border border-purple-200">
+                    <p className="text-[8px] font-semibold text-purple-600">AVG</p>
+                    <p className="text-xs font-bold text-purple-700">{avgTimeStr}</p>
+                  </div>
+                  
+                  {/* 3-Dot Menu Button */}
+                  <div className="relative">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenMenuClientId(openMenuClientId === c.id ? null : c.id);
+                      }}
+                      className="p-1.5 hover:bg-slate-100 rounded-lg transition-all text-slate-500 hover:text-slate-700"
+                    >
+                      <MoreVertical size={16} />
+                    </button>
+                    
+                    {/* Dropdown Menu */}
+                    {openMenuClientId === c.id && (
+                      <div className="absolute right-0 top-8 bg-white border border-slate-200 rounded-lg shadow-lg z-50 w-32">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditClientClick(c);
+                          }}
+                          className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 border-b border-slate-100 transition-all"
+                        >
+                          <Edit2 size={14} />
+                          Edit
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteClient(c.id);
+                          }}
+                          className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 transition-all"
+                        >
+                          <Trash2 size={14} />
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1092,8 +1331,12 @@ const ClientView = ({
             </div>
             <form onSubmit={handleSaveClient} className="space-y-5">
               <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Account Name</label>
-                <input type="text" className="w-full p-3 border border-slate-200 bg-white rounded-lg text-sm font-medium outline-none focus:ring-2 ring-blue-500/20 transition-all" placeholder="Enter company name" value={newClientName} onChange={(e) => setNewClientName(e.target.value)} required />
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Entity Name</label>
+                <input type="text" className="w-full p-3 border border-slate-200 bg-white rounded-lg text-sm font-medium outline-none focus:ring-2 ring-blue-500/20 transition-all" placeholder="Enter entity name" value={newEntityName} onChange={(e) => setNewEntityName(e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Client Name</label>
+                <input type="text" className="w-full p-3 border border-slate-200 bg-white rounded-lg text-sm font-medium outline-none focus:ring-2 ring-blue-500/20 transition-all" placeholder="Enter client name" value={newClientName} onChange={(e) => setNewClientName(e.target.value)} required />
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-[360px]">
                 <div className="flex flex-col space-y-3">
@@ -1103,7 +1346,7 @@ const ClientView = ({
                     <input type="text" placeholder="Search admins" className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-3 py-2 text-sm font-medium outline-none focus:ring-2 ring-blue-500/20" value={adminQuery} onChange={(e) => setAdminQuery(e.target.value)}/>
                   </div>
                   <div className="flex-1 overflow-y-auto border border-slate-200 rounded-xl p-2.5 bg-slate-50/40 space-y-2">
-                    {users.filter(u => managementRoles.includes(u.role) && u.name.toLowerCase().includes(adminQuery.toLowerCase())).map(admin => (
+                    {adminQuery.trim() ? getUserSuggestionsByRole(managementRoles, adminQuery).map(admin => (
                       <button
                         key={admin.id}
                         type="button"
@@ -1121,7 +1364,12 @@ const ClientView = ({
                           {selectedAdmins.includes(admin.id) ? 'Selected' : 'Add'}
                         </span>
                       </button>
-                    ))}
+                    )) : (
+                      <p className="text-xs font-medium text-slate-500 px-1 py-2">Type to search leadership members.</p>
+                    )}
+                    {adminQuery.trim() && !getUserSuggestionsByRole(managementRoles, adminQuery).length && (
+                      <p className="text-xs font-medium text-slate-500 px-1 py-2">No close leadership matches found.</p>
+                    )}
                   </div>
                 </div>
                 <div className="flex flex-col space-y-3">
@@ -1131,7 +1379,7 @@ const ClientView = ({
                     <input type="text" placeholder="Search team" className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-3 py-2 text-sm font-medium outline-none focus:ring-2 ring-blue-500/20" value={teamQuery} onChange={(e) => setTeamQuery(e.target.value)}/>
                   </div>
                   <div className="flex-1 overflow-y-auto border border-slate-200 rounded-xl p-2.5 bg-slate-50/40 space-y-2">
-                    {users.filter(u => executionRoles.includes(u.role) && u.name.toLowerCase().includes(teamQuery.toLowerCase())).map(emp => (
+                    {teamQuery.trim() ? getUserSuggestionsByRole(executionRoles, teamQuery).map(emp => (
                       <button
                         key={emp.id}
                         type="button"
@@ -1149,11 +1397,110 @@ const ClientView = ({
                           {selectedEmployees.includes(emp.id) ? 'Selected' : 'Add'}
                         </span>
                       </button>
-                    ))}
+                    )) : (
+                      <p className="text-xs font-medium text-slate-500 px-1 py-2">Type to search team members.</p>
+                    )}
+                    {teamQuery.trim() && !getUserSuggestionsByRole(executionRoles, teamQuery).length && (
+                      <p className="text-xs font-medium text-slate-500 px-1 py-2">No close team matches found.</p>
+                    )}
                   </div>
                 </div>
               </div>
               <button type="submit" className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold text-sm tracking-wide shadow-md hover:bg-blue-700 transition-all">Add Client</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Client Modal */}
+      {editingClientId && (
+        <div className="fixed inset-0 z-[700] flex items-center justify-center bg-slate-900/10 backdrop-blur-md p-4">
+          <div className="bg-white w-full max-w-5xl p-6 border border-slate-200 shadow-xl rounded-2xl animate-in zoom-in-95">
+            <div className="flex justify-between items-center mb-6">
+              <h4 className="text-lg font-semibold text-slate-900">Edit Client</h4>
+              <button onClick={handleCancelEditClient} className="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg transition-all"><X size={18}/></button>
+            </div>
+            <form onSubmit={handleSaveEditClient} className="space-y-5">
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Entity Name</label>
+                <input type="text" className="w-full p-3 border border-slate-200 bg-white rounded-lg text-sm font-medium outline-none focus:ring-2 ring-blue-500/20 transition-all" placeholder="Enter entity name" value={editEntityName} onChange={(e) => setEditEntityName(e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Client Name</label>
+                <input type="text" className="w-full p-3 border border-slate-200 bg-white rounded-lg text-sm font-medium outline-none focus:ring-2 ring-blue-500/20 transition-all" placeholder="Enter client name" value={editClientName} onChange={(e) => setEditClientName(e.target.value)} required />
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-[360px]">
+                <div className="flex flex-col space-y-3">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Leadership</label>
+                  <div className="relative">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
+                    <input type="text" placeholder="Search admins" className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-3 py-2 text-sm font-medium outline-none focus:ring-2 ring-blue-500/20" value={editAdminQuery} onChange={(e) => setEditAdminQuery(e.target.value)}/>
+                  </div>
+                  <div className="flex-1 overflow-y-auto border border-slate-200 rounded-xl p-2.5 bg-slate-50/40 space-y-2">
+                    {editAdminQuery.trim() ? getUserSuggestionsByRole(managementRoles, editAdminQuery).map(admin => (
+                      <button
+                        key={admin.id}
+                        type="button"
+                        onClick={() => editClientAdmins.includes(admin.id)
+                          ? setEditClientAdmins(editClientAdmins.filter(id => id !== admin.id))
+                          : setEditClientAdmins([...editClientAdmins, admin.id])
+                        }
+                        className={`w-full flex items-center justify-between p-3 rounded-lg transition-all border ${editClientAdmins.includes(admin.id)
+                          ? 'bg-blue-50 border-blue-200 text-blue-700'
+                          : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
+                        }`}
+                      >
+                        <span className="text-sm font-semibold">{admin.name}</span>
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${editClientAdmins.includes(admin.id) ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>
+                          {editClientAdmins.includes(admin.id) ? 'Selected' : 'Add'}
+                        </span>
+                      </button>
+                    )) : (
+                      <p className="text-xs font-medium text-slate-500 px-1 py-2">Type to search leadership members.</p>
+                    )}
+                    {editAdminQuery.trim() && !getUserSuggestionsByRole(managementRoles, editAdminQuery).length && (
+                      <p className="text-xs font-medium text-slate-500 px-1 py-2">No close leadership matches found.</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-col space-y-3">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Team</label>
+                  <div className="relative">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
+                    <input type="text" placeholder="Search team" className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-3 py-2 text-sm font-medium outline-none focus:ring-2 ring-blue-500/20" value={editTeamQuery} onChange={(e) => setEditTeamQuery(e.target.value)}/>
+                  </div>
+                  <div className="flex-1 overflow-y-auto border border-slate-200 rounded-xl p-2.5 bg-slate-50/40 space-y-2">
+                    {editTeamQuery.trim() ? getUserSuggestionsByRole(executionRoles, editTeamQuery).map(emp => (
+                      <button
+                        key={emp.id}
+                        type="button"
+                        onClick={() => editClientEmployees.includes(emp.id)
+                          ? setEditClientEmployees(editClientEmployees.filter(id => id !== emp.id))
+                          : setEditClientEmployees([...editClientEmployees, emp.id])
+                        }
+                        className={`w-full flex items-center justify-between p-3 rounded-lg transition-all border ${editClientEmployees.includes(emp.id)
+                          ? 'bg-blue-50 border-blue-200 text-blue-700'
+                          : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
+                        }`}
+                      >
+                        <span className="text-sm font-semibold">{emp.name}</span>
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${editClientEmployees.includes(emp.id) ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>
+                          {editClientEmployees.includes(emp.id) ? 'Selected' : 'Add'}
+                        </span>
+                      </button>
+                    )) : (
+                      <p className="text-xs font-medium text-slate-500 px-1 py-2">Type to search team members.</p>
+                    )}
+                    {editTeamQuery.trim() && !getUserSuggestionsByRole(executionRoles, editTeamQuery).length && (
+                      <p className="text-xs font-medium text-slate-500 px-1 py-2">No close team matches found.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-3 justify-end">
+                <button type="button" onClick={handleCancelEditClient} className="px-5 py-2.5 rounded-lg font-semibold text-sm bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all">Cancel</button>
+                <button type="submit" className="px-5 py-2.5 rounded-lg font-semibold text-sm bg-blue-600 text-white hover:bg-blue-700 transition-all shadow-md">Save Changes</button>
+              </div>
             </form>
           </div>
         </div>

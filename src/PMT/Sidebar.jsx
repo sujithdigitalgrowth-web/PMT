@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Home, Briefcase, Users, Settings, Network, SlidersHorizontal, BarChart3, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Home, Briefcase, Users, Settings, Network, SlidersHorizontal, BarChart3, FileSpreadsheet, ChevronLeft, ChevronRight } from 'lucide-react';
 
-const Sidebar = ({ activeTab, setActiveTab, setSelectedClient, isMinimized, setIsMinimized, canSeeControlCenter = false, canSeeSettings = true, canSeeUserManagement = true, canSeeEmployeeView = true, canSeeMetrics = true }) => {
+const Sidebar = ({ activeTab, setActiveTab, setSelectedClient, isMinimized, setIsMinimized, canSeeControlCenter = false, canSeeSettings = true, canSeeUserManagement = true, canSeeEmployeeView = true, canSeeMetrics = true, canSeeReports = true }) => {
   const [logoError, setLogoError] = useState(false);
 
   // Corrected array syntax and updated icons for better visual distinction
@@ -10,6 +10,7 @@ const Sidebar = ({ activeTab, setActiveTab, setSelectedClient, isMinimized, setI
     { id: 'clients', label: 'Clients', icon: <Briefcase size={18}/> },
     { id: 'users', label: 'User Management', icon: <Users size={18}/> },
     { id: 'metrics', label: 'Metrics', icon: <BarChart3 size={18}/> },
+    { id: 'reports', label: 'Reports', icon: <FileSpreadsheet size={18}/> },
     { id: 'employees', label: 'Employee View', icon: <Network size={18} /> }, // Changed to Network icon for flowchart feel
     { id: 'settings', label: 'Settings', icon: <Settings size={18}/> },
     { id: 'master-data', label: 'Control Center', icon: <SlidersHorizontal size={18}/> }
@@ -19,6 +20,7 @@ const Sidebar = ({ activeTab, setActiveTab, setSelectedClient, isMinimized, setI
     if (item.id === 'users') return canSeeUserManagement;
     if (item.id === 'employees') return canSeeEmployeeView;
     if (item.id === 'metrics') return canSeeMetrics;
+    if (item.id === 'reports') return canSeeReports;
     return true;
   });
 

@@ -18,7 +18,9 @@ const MasterDataView = ({
   employeeViewAccessRoles = [],
   setEmployeeViewAccessRoles,
   metricsAccessRoles = [],
-  setMetricsAccessRoles
+  setMetricsAccessRoles,
+  reportsAccessRoles = [],
+  setReportsAccessRoles
 }) => {
   const [activeTab, setActiveTab] = useState('categories');
   const [categoryInput, setCategoryInput] = useState('');
@@ -45,6 +47,16 @@ const MasterDataView = ({
     const merged = [...defaults, ...availableRoles];
     return [...new Set(merged)];
   }, [availableRoles]);
+
+  const getCategoryGroup = (category) => {
+    if (!category) return 'Other';
+    const [prefix] = category.split(' - ');
+    return prefix?.trim() || 'Other';
+  };
+
+  const categoryGroups = useMemo(() => {
+    return [...new Set(taskCategories.map(getCategoryGroup))].sort((left, right) => left.localeCompare(right));
+  }, [taskCategories]);
 
   const addItem = (value, list, setter, clear) => {
     const trimmed = value.trim();
@@ -117,9 +129,18 @@ const MasterDataView = ({
     setMetricsAccessRoles([...metricsAccessRoles, role]);
   };
 
+  const toggleReportsRole = (role) => {
+    if (reportsAccessRoles.includes(role)) {
+      if (reportsAccessRoles.length <= 1) return;
+      setReportsAccessRoles(reportsAccessRoles.filter(item => item !== role));
+      return;
+    }
+    setReportsAccessRoles([...reportsAccessRoles, role]);
+  };
+
   const filteredCategories = categoryFilter === 'All'
     ? taskCategories
-    : taskCategories.filter(category => category === categoryFilter);
+    : taskCategories.filter(category => getCategoryGroup(category) === categoryFilter);
 
   const filteredDepartments = departmentFilter === 'All'
     ? departments
@@ -154,6 +175,16 @@ const MasterDataView = ({
 
       {activeTab === 'categories' && (
         <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4">
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+            <div>
+              <p className="text-xs font-semibold text-slate-700">Category Filters</p>
+              <p className="text-[11px] text-slate-500">Filter task categories by type to review what is already added and what is still missing.</p>
+            </div>
+            <div className="rounded-md bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 border border-slate-200">
+              Showing {filteredCategories.length} of {taskCategories.length}
+            </div>
+          </div>
+
           <div className="flex items-center gap-2">
             <select
               value={categoryFilter}
@@ -161,7 +192,7 @@ const MasterDataView = ({
               className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-medium text-slate-700 outline-none"
             >
               <option value="All">All Categories</option>
-              {taskCategories.map(category => <option key={category} value={category}>{category}</option>)}
+              {categoryGroups.map(group => <option key={group} value={group}>{group}</option>)}
             </select>
             <div className="relative w-full max-w-md">
               <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
@@ -322,6 +353,7 @@ const MasterDataView = ({
                   <th className="px-3 py-2 text-left">Can Access User Management</th>
                   <th className="px-3 py-2 text-left">Can Access Employee View</th>
                   <th className="px-3 py-2 text-left">Can Access Metrics</th>
+                  <th className="px-3 py-2 text-left">Can Access Reports</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -331,6 +363,7 @@ const MasterDataView = ({
                   const userManagementChecked = userManagementAccessRoles.includes(role);
                   const employeeViewChecked = employeeViewAccessRoles.includes(role);
                   const metricsChecked = metricsAccessRoles.includes(role);
+                  const reportsChecked = reportsAccessRoles.includes(role);
                   return (
                     <tr key={role}>
                       <td className="px-3 py-2 text-sm font-medium text-slate-700">{role}</td>
@@ -387,6 +420,17 @@ const MasterDataView = ({
                             className="w-4 h-4 accent-blue-600"
                           />
                           <span className="text-xs font-medium text-slate-600">{metricsChecked ? 'Enabled' : 'Disabled'}</span>
+                        </label>
+                      </td>
+                      <td className="px-3 py-2">
+                        <label className="inline-flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={reportsChecked}
+                            onChange={() => toggleReportsRole(role)}
+                            className="w-4 h-4 accent-blue-600"
+                          />
+                          <span className="text-xs font-medium text-slate-600">{reportsChecked ? 'Enabled' : 'Disabled'}</span>
                         </label>
                       </td>
                     </tr>

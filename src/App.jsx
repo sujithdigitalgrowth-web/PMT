@@ -8,6 +8,7 @@ import SettingsView from './PMT/SettingsView';
 import EmployeeView from './PMT/EmployeeView'; 
 import MasterDataView from './PMT/MasterDataView';
 import UserMetricsView from './PMT/UserMetricsView';
+import ReportsView from './PMT/ReportsView';
 import Sidebar from './PMT/Sidebar';
 import Notifications from './PMT/Notifications';
 import ProfileDropdown from './PMT/ProfileDropdown';
@@ -23,29 +24,121 @@ const App = () => {
   const [loginError, setLoginError] = useState('');
   
   // Clients
-  const [clients, setClients] = useState([
-    { id: 'kmf-01', name: "KMF", industry: "Dairy" },
-    { id: 'durian-02', name: "Durian", industry: "Furniture" },
-    { id: 'chetak-03', name: "Bajaj - Chetak", industry: "Automotive" },
-    { id: 'ktm-04', name: "Bajaj - KTM", industry: "Automotive" }
-  ]);
+  const [clients, setClients] = useState([]);
 
   // Users with full hierarchy
   const [users, setUsers] = useState([
     { id: 1, name: "Theo", email: "theo@ethinos.com", role: 'Super Admin', assignedProjects: ["All"], department: 'Growth', region: 'North' },
     { id: 201, name: "Ankit", email: "ankit@ethinos.com", role: 'Director', assignedProjects: ["KMF", "Durian"], department: 'Growth', region: 'South' },
-    { id: 202, name: "Poonam", email: "poonam@ethinos.com", role: 'Manager', assignedProjects: ["Bajaj - Chetak", "Bajaj - KTM"], department: 'Client Servicing', region: 'West' },
+    { id: 202, name: "Poonam", email: "poonam@ethinos.com", role: 'Director', assignedProjects: ["Bajaj - Chetak", "Bajaj - KTM"], department: 'Client Servicing', region: 'West' },
+    { id: 205, name: "Suresh", email: "suresh@ethinos.com", role: 'Director', assignedProjects: ["KMF", "Durian", "Bajaj - Chetak", "Bajaj - KTM"], department: 'Growth', region: 'North' },
+    // Managers
     { id: 203, name: "Sanford", email: "sanford@ethinos.com", role: 'Manager', assignedProjects: ["Bajaj - Chetak"], department: 'Client Servicing', region: 'North' },
     { id: 204, name: "Yogesh", email: "yogesh@ethinos.com", role: 'Manager', assignedProjects: ["Bajaj - KTM"], department: 'Client Servicing', region: 'South' },
+    { id: 206, name: "Abha", email: "abha@ethinos.com", role: 'Manager', assignedProjects: ["KMF"], department: 'Growth', region: 'North' },
+    { id: 207, name: "Gaurav Sharma", email: "gaurav.sharma@ethinos.com", role: 'Manager', assignedProjects: ["Durian"], department: 'Growth', region: 'South' },
+    { id: 208, name: "Manuj", email: "manuj@ethinos.com", role: 'Manager', assignedProjects: ["Bajaj - Chetak"], department: 'Growth', region: 'West' },
+    { id: 209, name: "Rajesh", email: "rajesh@ethinos.com", role: 'Manager', assignedProjects: ["Bajaj - KTM"], department: 'Growth', region: 'North' },
+    { id: 210, name: "Prashanth Raghavan", email: "prashanth.r@ethinos.com", role: 'Manager', assignedProjects: ["KMF", "Durian"], department: 'Growth', region: 'South' },
+    { id: 211, name: "Chinthan", email: "chinthan@ethinos.com", role: 'Manager', assignedProjects: ["Bajaj - Chetak"], department: 'Growth', region: 'West' },
+    { id: 212, name: "Shivananda", email: "shivananda@ethinos.com", role: 'Manager', assignedProjects: ["Bajaj - KTM"], department: 'Growth', region: 'North' },
+    { id: 213, name: "Yash", email: "yash.manager@ethinos.com", role: 'Manager', assignedProjects: ["KMF"], department: 'Growth', region: 'South' },
+    { id: 214, name: "Ritwick", email: "ritwick@ethinos.com", role: 'Manager', assignedProjects: ["Durian"], department: 'Growth', region: 'West' },
+    { id: 215, name: "Yash Karnawat", email: "yash.karnawat@ethinos.com", role: 'Manager', assignedProjects: ["Bajaj - Chetak"], department: 'Growth', region: 'North' },
+    { id: 216, name: "Pranali", email: "pranali@ethinos.com", role: 'Manager', assignedProjects: ["Bajaj - KTM"], department: 'Growth', region: 'South' },
+    // Senior Executives / Assistant Managers
     { id: 301, name: "Saloni", email: "saloni@ethinos.com", role: 'Snr Executive', assignedProjects: ["KMF"], department: 'Creative', region: 'North' },
-    { id: 302, name: "Harsh", email: "harsh@ethinos.com", role: 'Executive', assignedProjects: ["Durian"], department: 'Biddable', region: 'South' },
-    { id: 303, name: "Riya", email: "riya@ethinos.com", role: 'Intern', assignedProjects: ["Bajaj - Chetak"], department: 'Biddable', region: 'West' },
-    { id: 304, name: "Pranoti", email: "pranoti@ethinos.com", role: 'Intern', assignedProjects: ["Bajaj - Chetak"], department: 'Creative', region: 'West' },
-    { id: 305, name: "Yash", email: "yash@ethinos.com", role: 'Intern', assignedProjects: ["Bajaj - KTM"], department: 'Biddable', region: 'South' },
-    { id: 306, name: "Mayur", email: "mayur@ethinos.com", role: 'Intern', assignedProjects: ["Bajaj - KTM"], department: 'Growth', region: 'North' }
+    { id: 302, name: "Tharun", email: "tharun@ethinos.com", role: 'Snr Executive', assignedProjects: ["Durian"], department: 'Growth', region: 'South' },
+    { id: 303, name: "Riya Joshi", email: "riya.joshi@ethinos.com", role: 'Snr Executive', assignedProjects: ["Bajaj - Chetak"], department: 'Creative', region: 'West' },
+    { id: 304, name: "Shuchi", email: "shuchi@ethinos.com", role: 'Snr Executive', assignedProjects: ["Bajaj - KTM"], department: 'Growth', region: 'North' },
+    { id: 305, name: "Kristy", email: "kristy@ethinos.com", role: 'Snr Executive', assignedProjects: ["KMF"], department: 'Creative', region: 'South' },
+    { id: 306, name: "Sujit", email: "sujit@ethinos.com", role: 'Snr Executive', assignedProjects: ["Durian"], department: 'Growth', region: 'West' },
+    { id: 307, name: "Sonia", email: "sonia@ethinos.com", role: 'Snr Executive', assignedProjects: ["Bajaj - Chetak"], department: 'Growth', region: 'North' },
+    // Executives
+    { id: 401, name: "Harsh", email: "harsh@ethinos.com", role: 'Executive', assignedProjects: ["Durian"], department: 'Biddable', region: 'South' },
+    { id: 402, name: "Manan Bhanushali", email: "manan.b@ethinos.com", role: 'Executive', assignedProjects: ["Bajaj - Chetak"], department: 'Growth', region: 'West' },
+    { id: 403, name: "Tarang Mishra", email: "tarang.m@ethinos.com", role: 'Executive', assignedProjects: ["KMF"], department: 'Growth', region: 'North' },
+    { id: 404, name: "Deboshree", email: "deboshree@ethinos.com", role: 'Executive', assignedProjects: ["Bajaj - KTM"], department: 'Growth', region: 'South' },
+    { id: 405, name: "Mohit", email: "mohit@ethinos.com", role: 'Executive', assignedProjects: ["Durian"], department: 'Growth', region: 'West' },
+    { id: 406, name: "Akshitha", email: "akshitha@ethinos.com", role: 'Executive', assignedProjects: ["Bajaj - Chetak"], department: 'Growth', region: 'North' },
+    { id: 407, name: "Mayur", email: "mayur@ethinos.com", role: 'Executive', assignedProjects: ["Bajaj - KTM"], department: 'Growth', region: 'South' },
+    { id: 408, name: "Pranoti", email: "pranoti@ethinos.com", role: 'Executive', assignedProjects: ["KMF"], department: 'Creative', region: 'West' },
+    { id: 409, name: "Mahak Gupta", email: "mahak.g@ethinos.com", role: 'Executive', assignedProjects: ["Durian"], department: 'Growth', region: 'North' },
+    { id: 410, name: "Angad", email: "angad@ethinos.com", role: 'Executive', assignedProjects: ["Bajaj - Chetak"], department: 'Growth', region: 'South' },
+    { id: 411, name: "Aditya", email: "aditya@ethinos.com", role: 'Executive', assignedProjects: ["Bajaj - KTM"], department: 'Growth', region: 'West' },
+    // Business Heads
+    { id: 501, name: "Simran", email: "simran@ethinos.com", role: 'Business Head', assignedProjects: ["KMF", "Durian"], department: 'Growth', region: 'North' },
+    { id: 502, name: "Souvik", email: "souvik@ethinos.com", role: 'Business Head', assignedProjects: ["Bajaj - Chetak", "Bajaj - KTM"], department: 'Growth', region: 'South' },
+    { id: 503, name: "Pranav", email: "pranav@ethinos.com", role: 'Business Head', assignedProjects: ["KMF"], department: 'Growth', region: 'North' },
+    { id: 504, name: "Kishan", email: "kishan@ethinos.com", role: 'Business Head', assignedProjects: ["Durian"], department: 'Growth', region: 'South' },
+    { id: 505, name: "Abhay", email: "abhay@ethinos.com", role: 'Business Head', assignedProjects: ["Bajaj - Chetak"], department: 'Growth', region: 'West' },
+    { id: 506, name: "Philip", email: "philip@ethinos.com", role: 'Business Head', assignedProjects: ["Bajaj - KTM"], department: 'Growth', region: 'North' },
+    { id: 507, name: "Prashanth", email: "prashanth@ethinos.com", role: 'Business Head', assignedProjects: ["KMF", "Durian"], department: 'Growth', region: 'South' },
+    { id: 508, name: "DJ", email: "dj@ethinos.com", role: 'Business Head', assignedProjects: ["Bajaj - Chetak", "Bajaj - KTM"], department: 'Growth', region: 'West' },
+    // Senior Managers
+    { id: 251, name: "Madhulika", email: "madhulika@ethinos.com", role: 'Snr Manager', assignedProjects: ["KMF", "Durian"], department: 'Growth', region: 'North' },
+    { id: 252, name: "Haseeb", email: "haseeb@ethinos.com", role: 'Snr Manager', assignedProjects: ["Bajaj - Chetak", "Bajaj - KTM"], department: 'Growth', region: 'South' },
+    { id: 253, name: "Vineeth", email: "vineeth@ethinos.com", role: 'Snr Manager', assignedProjects: ["KMF"], department: 'Client Servicing', region: 'West' },
+    { id: 254, name: "Sana", email: "sana@ethinos.com", role: 'Snr Manager', assignedProjects: ["Durian", "Bajaj - Chetak"], department: 'Growth', region: 'North' }
   ]);
 
-  const [taskCategories, setTaskCategories] = useState(['General', 'Planning', 'Execution', 'Review']);
+  const [taskCategories, setTaskCategories] = useState([
+    'General',
+    'Planning',
+    'Execution',
+    'Review',
+    'Campaign Setup',
+    'Execution - Campaign Creation',
+    'Execution - Campaign Structuring',
+    'Execution - Budget & Bidding Setup',
+    'Platform Setup',
+    'Execution - Google Ads Setup',
+    'Execution - Meta Ads Setup',
+    'Execution - Bing Ads Setup',
+    'Targeting & Inputs',
+    'Execution - Audience Setup',
+    'Execution - Keyword Uploads',
+    'Execution - Negative Keywords Setup',
+    'Creatives & Assets',
+    'Execution - Creative Uploads',
+    'Execution - Ad Copy Implementation',
+    'Execution - Extensions Setup (Sitelinks, Callouts, etc.)',
+    'Tracking & QA',
+    'Execution - Conversion Tracking Setup',
+    'Execution - Pixel / GTM Implementation',
+    'Execution - QA & Pre-Launch Checks',
+    'Internal',
+    'General - Internal Meetings',
+    'General - Internal Training',
+    'General - Team Coordination',
+    'Client Communication',
+    'General - Client Meetings',
+    'General - Client Communication (Email / WhatsApp)',
+    'General - Client Approvals',
+    'Planning & Admin',
+    'General - Task Planning',
+    'General - Documentation',
+    'General - Reporting Coordination',
+    'Optimization - Budget Adjustments',
+    'Optimization - Bid Adjustments',
+    'Optimization - Audience Optimization',
+    'Optimization - Creative Optimization',
+    'Optimization - Keyword Optimization',
+    'Optimization - Scaling / Pausing',
+    'Tracking - Pixel Setup',
+    'Tracking - Conversion Tracking',
+    'Tracking - GTM / GA4 Setup',
+    'Tracking - Event Validation',
+    'Reporting - Daily Performance',
+    'Reporting - Daily Spend & Pacing',
+    'Reporting - Daily Conversions',
+    'Reporting - Weekly Performance Summary',
+    'Reporting - Weekly Insights',
+    'Reporting - Weekly Action Plan',
+    'Reporting - Monthly Performance',
+    'Reporting - Monthly KPI vs Target',
+    'Reporting - Monthly Insights & Strategy'
+  ]);
   const [departments, setDepartments] = useState(['Creative', 'Biddable', 'Growth', 'Client Servicing']);
   const [regions, setRegions] = useState(['North', 'South', 'West']);
   const [controlCenterAccessRoles, setControlCenterAccessRoles] = useState(['Super Admin', 'Director']);
@@ -53,10 +146,9 @@ const App = () => {
   const [userManagementAccessRoles, setUserManagementAccessRoles] = useState(['Super Admin', 'Director']);
   const [employeeViewAccessRoles, setEmployeeViewAccessRoles] = useState(['Super Admin', 'Director']);
   const [metricsAccessRoles, setMetricsAccessRoles] = useState(['Super Admin', 'Director']);
+  const [reportsAccessRoles, setReportsAccessRoles] = useState(['Super Admin', 'Director']);
 
-  const [clientLogs, setClientLogs] = useState({ 
-    'kmf-01': [{ id: 'l1', date: '27th Feb 2026', comment: 'Initial Setup', result: '', status: 'Pending' }] 
-  });
+  const [clientLogs, setClientLogs] = useState({});
   
   const [notifications, setNotifications] = useState([
     { id: 1, text: "Permissions system active", time: "Just now", read: false },
@@ -78,6 +170,7 @@ const App = () => {
   const canSeeUserManagement = userManagementAccessRoles.includes(currentUser?.role);
   const canSeeEmployeeView = employeeViewAccessRoles.includes(currentUser?.role);
   const canSeeMetrics = metricsAccessRoles.includes(currentUser?.role);
+  const canSeeReports = reportsAccessRoles.includes(currentUser?.role);
   const availableRoles = [...new Set(users.map(user => user.role))];
   
   const accessibleClients = !currentUser
@@ -91,6 +184,7 @@ const App = () => {
     clients: 'Clients',
     users: 'Users',
     metrics: 'Metrics',
+    reports: 'Reports',
     employees: 'Employees',
     settings: 'Settings',
     'master-data': 'Control Center'
@@ -161,7 +255,10 @@ const App = () => {
     if (activeTab === 'metrics' && !canSeeMetrics) {
       setActiveTab('home');
     }
-  }, [activeTab, canSeeControlCenter, canSeeSettings, canSeeUserManagement, canSeeEmployeeView, canSeeMetrics]);
+    if (activeTab === 'reports' && !canSeeReports) {
+      setActiveTab('home');
+    }
+  }, [activeTab, canSeeControlCenter, canSeeSettings, canSeeUserManagement, canSeeEmployeeView, canSeeMetrics, canSeeReports]);
 
   if (!currentUser) {
     return <LoginView onLogin={handleLogin} loginError={loginError} />;
@@ -187,6 +284,7 @@ const App = () => {
         canSeeUserManagement={canSeeUserManagement}
         canSeeEmployeeView={canSeeEmployeeView}
         canSeeMetrics={canSeeMetrics}
+        canSeeReports={canSeeReports}
       />
 
       <div className="flex-1 flex flex-col bg-transparent overflow-hidden relative border-l border-white/40">
@@ -269,6 +367,10 @@ const App = () => {
             <UserMetricsView users={users} clients={clients} clientLogs={clientLogs} />
           )}
 
+          {activeTab === 'reports' && !selectedClient && canSeeReports && (
+            <ReportsView users={users} clients={clients} clientLogs={clientLogs} />
+          )}
+
           {/* FIXED: SettingsView now receives currentUser to unlock role editing */}
           {activeTab === 'settings' && !selectedClient && canSeeSettings && (
             <SettingsView 
@@ -300,6 +402,8 @@ const App = () => {
               setEmployeeViewAccessRoles={setEmployeeViewAccessRoles}
               metricsAccessRoles={metricsAccessRoles}
               setMetricsAccessRoles={setMetricsAccessRoles}
+              reportsAccessRoles={reportsAccessRoles}
+              setReportsAccessRoles={setReportsAccessRoles}
             />
           )}
 
