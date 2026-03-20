@@ -538,15 +538,15 @@ const ClientView = ({
 
         {/* Task Table */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="max-h-[68vh] overflow-y-auto">
-            <table className="w-full border-collapse table-fixed">
+          <div className="max-h-[68vh] overflow-auto">
+            <table className="w-full min-w-[980px] border-collapse table-fixed">
               <colgroup>
-                <col className="w-[7%]" />
-                <col className="w-[7%]" />
-                <col className="w-[7%]" />
-                <col className="w-[9%]" />
+                <col className="w-[8%]" />
                 <col className="w-[10%]" />
-                <col className="w-[45%]" />
+                <col className="w-[10%]" />
+                <col className="w-[18%]" />
+                <col className="w-[12%]" />
+                <col className="w-[27%]" />
                 <col className="w-[10%]" />
                 <col className="w-[5%]" />
               </colgroup>
@@ -589,7 +589,7 @@ const ClientView = ({
                       </td>
                       <td className="px-1 py-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                         <select
-                          className={`text-[10px] border-none rounded-md px-1 py-0.5 font-semibold outline-none cursor-pointer min-w-[60px] ${
+                          className={`w-full min-w-0 text-[10px] border-none rounded-md px-1.5 py-1 font-semibold outline-none cursor-pointer ${
                             log.status === 'Done' ? 'bg-emerald-100 text-emerald-600' :
                             log.status === 'WIP' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'
                           }`}
@@ -604,9 +604,9 @@ const ClientView = ({
                           <option value="Done">Done</option>
                         </select>
                       </td>
-                      <td className="px-1.5 py-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                      <td className="px-1.5 py-2" onClick={(e) => e.stopPropagation()}>
                         <select
-                          className="text-[10px] border border-slate-200 rounded-md px-1 py-0.5 font-semibold outline-none cursor-pointer min-w-[72px] bg-white text-slate-700"
+                          className="w-full min-w-0 text-[10px] border border-slate-200 rounded-md px-2 py-1 font-semibold outline-none cursor-pointer bg-white text-slate-700"
                           value={log.category || taskCategories[0] || 'General'}
                           onChange={e => {
                             const updated = clientLogs[selectedClient.id].map(l => l.id === log.id ? { ...l, category: e.target.value } : l);
